@@ -4,12 +4,15 @@ import { TicketTypesService } from '../ticket-types/ticket-types.service.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
 import { v4 as uuidv4 } from 'uuid';
 import * as QRCode from 'qrcode';
+import { createHmac } from 'crypto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class OrdersService {
   constructor(
     private supabase: SupabaseService,
     private ticketTypesService: TicketTypesService,
+    private configService: ConfigService,
   ) {}
 
   async createOrder(dto: CreateOrderDto) {
@@ -105,7 +108,7 @@ export class OrdersService {
   async getOrdersByEmail(email: string) {
     const { data, error } = await this.supabase.getClient()
       .from('orders')
-      .select('*, order_items(*, ticket_types(name)), payments(status, payment_method)')
+      .select('*, order_items(*, ticket_types(name)), payments(status, payment_method), tickets(*)')
       .eq('user_email', email)
       .order('created_at', { ascending: false });
 
@@ -138,6 +141,11 @@ export class OrdersService {
     for (const item of order.order_items) {
       for (let i = 0; i < item.quantity; i++) {
         const ticketId = uuidv4();
+        const issuedAt = new Date().toISOString();
+        const qrSecret = this.configService.get<string>('qrSigningSecret') || 'zitf-qr-secret';
+        const sig = createHmac('sha256', qrSecret)
+          .update(`${ticketId}|${orderId}|${issuedAt}`)
+          .digest('hex');
         const qrData = JSON.stringify({
           ticket_id: ticketId,
           order_id: orderId,
@@ -145,7 +153,8 @@ export class OrdersService {
           ticket_type: item.ticket_types?.name,
           holder_name: order.user_email,
           holder_type: order.user_type,
-          issued_at: new Date().toISOString(),
+          issued_at: issuedAt,
+          sig,
         });
 
         const qrCodeDataUrl = await QRCode.toDataURL(qrData, {
@@ -205,6 +214,10 @@ export class OrdersService {
 
     if (!order || order.status !== 'paid') {
       throw new ForbiddenException('Payment must be completed before downloading ticket');
+    }
+
+    if (ticket.download_count >= 1) {
+      throw new ForbiddenException('This ticket PDF has already been downloaded. Please contact support if you need assistance.');
     }
 
     await this.supabase.getAdminClient()

@@ -11,4 +11,5 @@ export default () => ({
     resultUrl: process.env.PAYNOW_RESULT_URL,
     returnUrl: process.env.PAYNOW_RETURN_URL,
   },
+  qrSigningSecret: process.env.QR_SIGNING_SECRET || 'zitf-qr-signing-secret-2025',
 });

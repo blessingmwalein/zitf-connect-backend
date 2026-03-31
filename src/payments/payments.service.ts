@@ -34,7 +34,8 @@ export class PaymentsService {
 
     const payment = this.paynow.createPayment(
       `ZITF-${order.order_number}`,
-      order.user_email || '',
+      // order.user_email || 'bmwale2000000@gmail.com',
+      'bmwale2000000@gmail.com',
     );
 
     for (const item of order.order_items) {
@@ -46,9 +47,11 @@ export class PaymentsService {
   }
 
   async initiateStandPayment(dto: InitiateStandPaymentDto) {
+
     const payment = this.paynow.createPayment(
       `ZITF-STAND-${dto.stand_id.substring(0, 8)}`,
-      dto.user_email || '',
+      // dto.user_email || 'bmwale2000000@gmail.com',
+      'bmwale2000000@gmail.com',
     );
 
     payment.add('Stand Application Fee', dto.amount);
@@ -75,7 +78,13 @@ export class PaymentsService {
       .select()
       .single();
 
-    if (error) throw new BadRequestException(error.message);
+
+     console.log('Payment record created:', paymentRecord);
+     console.log('Paynow record created:', payment);
+    if (error) {
+      console.error('Error creating payment record:', error);
+      throw new BadRequestException(error.message)
+    };
 
     return this.processPaymentRequest(payment, dto.payment_method, dto.phone_number, paymentRecord.id);
   }
@@ -116,14 +125,12 @@ export class PaymentsService {
     paymentId: string,
   ) {
     try {
-      let response;
+      let response: any;
 
       if (method === PaymentMethod.WEB) {
         response = await this.paynow.send(payment);
       } else {
-        if (!phoneNumber) {
-          throw new BadRequestException('Phone number is required for mobile payments');
-        }
+        if (!phoneNumber) throw new BadRequestException('Phone number is required for mobile payments');
         response = await this.paynow.sendMobile(payment, phoneNumber, method);
       }
 
@@ -132,13 +139,8 @@ export class PaymentsService {
           poll_url: response.pollUrl,
           paynow_reference: response.pollUrl,
         };
-
-        if (method === PaymentMethod.WEB) {
-          updateData.redirect_url = response.redirectUrl;
-        }
-        if (response.instructions) {
-          updateData.instructions = response.instructions;
-        }
+        if (method === PaymentMethod.WEB) updateData.redirect_url = response.redirectUrl;
+        if (response.instructions) updateData.instructions = response.instructions;
 
         await this.supabase.getAdminClient()
           .from('payments')
@@ -168,7 +170,7 @@ export class PaymentsService {
   }
 
   async pollPaymentStatus(paymentId: string) {
-    const { data: payment, error } = await this.supabase.getClient()
+    const { data: payment, error } = await this.supabase.getAdminClient()
       .from('payments')
       .select('*')
       .eq('id', paymentId)
@@ -181,7 +183,7 @@ export class PaymentsService {
     try {
       const status = await this.paynow.pollTransaction(payment.poll_url);
 
-      if (status.paid()) {
+      if (status.status?.toString().toLowerCase() === 'paid') {
         await this.supabase.getAdminClient()
           .from('payments')
           .update({
