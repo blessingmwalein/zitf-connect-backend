@@ -14,6 +14,16 @@ import { HeatmapService } from './heatmap.service.js';
 import { LocationUpdateDto } from './dto/location-update.dto.js';
 import { SupabaseService } from '../supabase/supabase.service.js';
 
+const ALLOWED_ORIGINS = (process.env.CORS_ALLOWED_ORIGINS
+  ?.split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)) || [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'https://zitf-connect-admin.vercel.app',
+];
+
 /**
  * WebSocket Gateway for real-time location tracking.
  *
@@ -34,7 +44,7 @@ import { SupabaseService } from '../supabase/supabase.service.js';
  */
 @WebSocketGateway({
   cors: {
-    origin: '*',
+    origin: ALLOWED_ORIGINS,
     credentials: true,
   },
   namespace: '/tracking',

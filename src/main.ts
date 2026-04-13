@@ -4,11 +4,29 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { AppModule } from './app.module.js';
 
+const DEFAULT_ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'https://zitf-connect-admin.vercel.app',
+];
+
+function getAllowedOrigins(): string[] {
+  const fromEnv = process.env.CORS_ALLOWED_ORIGINS
+    ?.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  return fromEnv && fromEnv.length > 0 ? fromEnv : DEFAULT_ALLOWED_ORIGINS;
+}
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  const allowedOrigins = getAllowedOrigins();
+
   app.enableCors({
-    origin: true,
+    origin: allowedOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
@@ -43,6 +61,7 @@ async function bootstrap() {
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
   console.log(`ZITF Backend running on port ${port}`);
+  console.log(`CORS allowed origins: ${allowedOrigins.join(', ')}`);
   console.log(`Swagger docs available at http://localhost:${port}/docs`);
   console.log(`WebSocket tracking available at ws://localhost:${port}/tracking`);
 }
