@@ -6,6 +6,7 @@ import { SupabaseModule } from './supabase/supabase.module.js';
 import { TicketTypesModule } from './ticket-types/ticket-types.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
 import { OrdersModule } from './orders/orders.module.js';
+import { TrackingModule } from './tracking/tracking.module.js';
 import configuration from './config/configuration.js';
 
 @Module({
@@ -18,6 +19,7 @@ import configuration from './config/configuration.js';
     TicketTypesModule,
     PaymentsModule,
     OrdersModule,
+    TrackingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
